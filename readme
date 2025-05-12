@@ -1,0 +1,22 @@
+cd /tmp
+curl https://raw.githubusercontent.com/nix-community/disko/master/example/hybrid.nix -o /tmp/disko.nix
+nano /tmp/disko.nix
+sudo nix --experimental-features "nix-command flakes" run github:nix-community/disko/latest -- --mode destroy,format,mount /tmp/disko.nix
+mount | grep /mnt
+#Output /dev/nvme0n1p1 on /mnt type ext4 (rw,relatime,stripe=2)
+#/dev/nvme0n1p2 on /mnt/boot type vfat (rw,relatime,fmask=0022,dmask=0022,codepage=437,iocharset=iso8859-1,shortname=mixed,errors=remount-ro)
+nixos-generate-config --no-filesystems --root /mnt
+mv /tmp/disko.nix /mnt/etc/nixos
+
+#in configuration.nix
+imports =
+ [ # Include the results of the hardware scan.
+   ./hardware-configuration.nix
+   "${builtins.fetchTarball "https://github.com/nix-community/disko/archive/master.tar.gz"}/module.nix"
+   ./disko.nix
+ ];
+
+#configuration.nix grub setup
+   boot.loader.grub.enable = true;
+   boot.loader.grub.efiSupport = true;
+   boot.loader.grub.efiInstallAsRemovable = true;
