@@ -20,3 +20,9 @@ imports =
    boot.loader.grub.enable = true;
    boot.loader.grub.efiSupport = true;
    boot.loader.grub.efiInstallAsRemovable = true;
+
+  services.xserver.enable = true;
+
+  # As of 25.11
+  services.displayManager.gdm.enable = true;
+  services.desktopManager.gnome.enable = true;
