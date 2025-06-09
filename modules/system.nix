@@ -9,7 +9,7 @@
   i18n.defaultLocale = "en_US.UTF-8";
 
   # Set your system's hostname
-  networking.hostName = "dhilipan-nixos"; # <-- CHANGE THIS IF YOU WISH
+  networking.hostName = "dhilipan"; # <-- CHANGE THIS IF YOU WISH
 
   # Nix settings, including enabling flakes
   nix.settings.experimental-features = [ "nix-command" "flakes" ];

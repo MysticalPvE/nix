@@ -100,65 +100,65 @@
   ];
 
   # PCI latency timer service
-  systemd.services.pci-latency = {
-    description = "Adjust latency timers for PCI peripherals";
-    wantedBy = [ "multi-user.target" ];
-    serviceConfig = {
-      Type = "oneshot";
-      ExecStart = "${pkgs.writeShellScript "pci-latency" ''
-        # Check if the script is run with root privileges
-        if [ "$(id -u)" -ne 0 ]; then
-          echo "Error: This script must be run with root privileges." >&2
-          exit 1
-        fi
-
-        # Reset the latency timer for all PCI devices
-        ${pkgs.pciutils}/bin/setpci -v -s '*:*' latency_timer=20
-        ${pkgs.pciutils}/bin/setpci -v -s '0:0' latency_timer=0
-
-        # Set latency timer for all sound cards
-        ${pkgs.pciutils}/bin/setpci -v -d "*:*:04xx" latency_timer=80
-      ''}";
-    };
-  };
+  # systemd.services.pci-latency = {
+  #  description = "Adjust latency timers for PCI peripherals";
+  #  wantedBy = [ "multi-user.target" ];
+  #  serviceConfig = {
+  #    Type = "oneshot";
+  #    ExecStart = "${pkgs.writeShellScript "pci-latency" ''
+  #      # Check if the script is run with root privileges
+  #      if [ "$(id -u)" -ne 0 ]; then
+  #        echo "Error: This script must be run with root privileges." >&2
+  #        exit 1
+  #      fi
+  #
+  #      # Reset the latency timer for all PCI devices
+  #      ${pkgs.pciutils}/bin/setpci -v -s '*:*' latency_timer=20
+  #      ${pkgs.pciutils}/bin/setpci -v -s '0:0' latency_timer=0
+  #
+  #      # Set latency timer for all sound cards
+  #      ${pkgs.pciutils}/bin/setpci -v -d "*:*:04xx" latency_timer=80
+  #    ''}";
+  #  };
+  #};
 
   # Game performance script and utilities
-  environment.systemPackages = with pkgs; [
-    pciutils
-    power-profiles-daemon
-    (writeShellScriptBin "game-performance" ''
+  #environment.systemPackages = with pkgs; [
+   # pciutils
+   # power-profiles-daemon
+   # (writeShellScriptBin "game-performance" ''
       #!/usr/bin/env bash
       # Helper script to enable the performance gov with proton or others
-      if ! command -v powerprofilesctl &>/dev/null; then
-          echo "Error: powerprofilesctl not found" >&2
-          exit 1
-      fi
+   #   if ! command -v powerprofilesctl &>/dev/null; then
+   #       echo "Error: powerprofilesctl not found" >&2
+   #       exit 1
+   #   fi
 
       # Don't fail if the CPU driver doesn't support performance power profile
-      if ! powerprofilesctl list | grep -q 'performance:'; then
-          exec "$@"
-      fi
+   #   if ! powerprofilesctl list | grep -q 'performance:'; then
+   #       exec "$@"
+   #   fi
 
       # Set performance governors, as long the game is launched
-      if [ -n "$GAME_PERFORMANCE_SCREENSAVER_ON" ]; then
-          exec powerprofilesctl launch -p performance \
-              -r "Launched with game-performance utility" -- "$@"
-      else
-          exec systemd-inhibit --why "game-performance is running" powerprofilesctl launch \
-              -p performance -r "Launched with game-performance utility" -- "$@"
-      fi
-    '')
+   #   if [ -n "$GAME_PERFORMANCE_SCREENSAVER_ON" ]; then
+   #       exec powerprofilesctl launch -p performance \
+   #           -r "Launched with game-performance utility" -- "$@"
+   #   else
+   #       exec systemd-inhibit --why "game-performance is running" powerprofilesctl launch \
+   #           -p performance -r "Launched with game-performance utility" -- "$@"
+   #   fi
+   # '')
 
     # Zink Mesa wrapper script
-    (writeShellScriptBin "zink-mesa" ''
+  #  (writeShellScriptBin "zink-mesa" ''
       #!/usr/bin/env bash
-      export MESA_LOADER_DRIVER_OVERRIDE=zink
-      export GALLIUM_DRIVER=zink
-      export __GLX_VENDOR_LIBRARY_NAME=mesa
-      export __EGL_VENDOR_LIBRARY_FILENAMES=/run/opengl-driver/share/glvnd/egl_vendor.d/50_mesa.json
-      exec "$@"
-    '')
-  ];
+  #    export MESA_LOADER_DRIVER_OVERRIDE=zink
+  #    export GALLIUM_DRIVER=zink
+  #    export __GLX_VENDOR_LIBRARY_NAME=mesa
+  #    export __EGL_VENDOR_LIBRARY_FILENAMES=/run/opengl-driver/share/glvnd/egl_vendor.d/50_mesa.json
+  #    exec "$@"
+  #  '')
+  #];
 
   # Enable power-profiles-daemon
   services.power-profiles-daemon.enable = true;

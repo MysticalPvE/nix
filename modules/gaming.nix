@@ -21,7 +21,7 @@
   hardware.steam-hardware.enable = true;
 
   # Gaming packages
-  environment.systemPackages = with pkgs-unstable; [
+  environment.systemPackages = with pkgs; [
     # Lutris with additional libraries
     (lutris.override {
       extraLibraries = p: [ p.libadwaita p.gtk4 ];

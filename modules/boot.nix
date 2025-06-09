@@ -4,7 +4,7 @@
 {
   boot = {
     # Use CachyOS kernel for better performance
-    kernelPackages = pkgs.linuxKernel.packages.linux_cachyos;
+    kernelPackages = pkgs.linuxPackages_cachyos;
 
     # Clean /tmp on boot
     tmp.cleanOnBoot = true;
@@ -37,10 +37,10 @@
     "kernel.kexec_load_disabled" = 1;
 
     # Network performance (merged from system-tweaks)
-    "net.core.netdev_max_backlog" = 4096;
+    # "net.core.netdev_max_backlog" = 4096;
 
     # File system (merged from system-tweaks)
-    "fs.file-max" = 2097152;
+    # "fs.file-max" = 2097152;
   };
 
   # ZRAM swap configuration - Updated to match your Arch config

@@ -3,7 +3,7 @@
 
 {
   # Enable PipeWire for audio, which is the modern standard
-  sound.enable = true;
+  # sound.enable = true;
   hardware.pulseaudio.enable = false;
   security.rtkit.enable = true;
   services.pipewire = {

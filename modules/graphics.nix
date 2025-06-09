@@ -8,11 +8,11 @@
     enable32Bit = true;
 
     # Use unstable Mesa packages
-    package = pkgs-unstable.mesa;
-    package32 = pkgs-unstable.pkgsi686Linux.mesa;
+    package = pkgs.mesa;
+    package32 = pkgs.pkgsi686Linux.mesa;
 
     # Extra packages for Intel graphics and VA-API
-    extraPackages = with pkgs-unstable; [
+    extraPackages = with pkgs; [
       intel-gpu-tools
       intel-media-driver
       vaapiIntel
@@ -24,7 +24,7 @@
     ];
 
     # 32-bit support packages
-    extraPackages32 = with pkgs-unstable; [
+    extraPackages32 = with pkgs; [
       intel-gpu-tools
       intel-media-driver
       vaapiIntel
@@ -35,7 +35,7 @@
   };
 
   # Ensure Mesa is available in system packages
-  environment.systemPackages = with pkgs-unstable; [
+  environment.systemPackages = with pkgs; [
     mesa
   ];
 }

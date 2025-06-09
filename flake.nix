@@ -14,12 +14,16 @@
   outputs = { self, nixpkgs, chaotic, disko }:
     let
       system = "x86_64-linux";
-      pkgs = nixpkgs.legacyPackages.${system};
+      pkgs = import nixpkgs {
+	inherit system;
+        config.allowUnfree = true; 
+    
+    };
     in
     {
       nixosConfigurations = {
         dhilipan = nixpkgs.lib.nixosSystem {
-          inherit system;
+          inherit pkgs;
           specialArgs = {
             pkgs-unstable = pkgs;
           };
@@ -34,6 +38,7 @@
             ./modules/udev.nix
             ./modules/tweaks.nix
             ./modules/disko.nix
+            disko.nixosModules.disko
             chaotic.nixosModules.default
           ];
         };
