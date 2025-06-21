@@ -1,0 +1,441 @@
+# flake.nix
+{
+  description = "Personal NixOS Configuration";
+
+  inputs = {
+    nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
+  };
+
+  outputs = { self, nixpkgs, ... }:
+    let
+      system = "x86_64-linux";
+      
+      pkgs = import nixpkgs {
+        inherit system;
+        config.allowUnfree = true;
+      };
+    in
+    {
+      nixosConfigurations."Dhilipan" = nixpkgs.lib.nixosSystem {
+        inherit system pkgs;
+        modules = [
+          ./hardware-configuration.nix
+          ./configuration.nix
+        ];
+      };
+    };
+}
+
+# configuration.nix
+{ config, pkgs, lib, ... }:
+
+{
+  imports = [
+    ./hardware-configuration.nix
+    ./modules/users.nix
+    ./modules/gaming.nix
+    ./modules/system.nix
+  ];
+
+  # Enable flakes
+  nix.settings.experimental-features = [
+    "nix-command"
+    "flakes"
+  ];
+
+  # System state version
+  system.stateVersion = "24.05";
+}
+
+
+
+# modules/users.nix
+{ config, pkgs, lib, ... }:
+
+{
+  users.users.dhilipan = {
+    isNormalUser = true;
+    extraGroups = [
+      "networkmanager"
+      "wheel"
+      "render"
+      "audio"
+      "video"
+    ];
+  };
+}
+
+# modules/gaming.nix
+{ config, pkgs, lib, ... }:
+
+{
+  environment.systemPackages = with pkgs; [
+    # Gaming tools
+    lutris
+    heroic
+    mangohud
+    mesa
+    oversteer
+    wineWowPackages.staging
+    winetricks
+    glxinfo
+  ];
+
+  environment.sessionVariables = {
+    STEAM_EXTRA_COMPAT_TOOLS_PATHS = "\${HOME}/.steam/root/compatibilitytools.d";
+  };
+
+  # Gamescope
+  programs.gamescope = {
+    enable = true;
+    capSysNice = true;
+  };
+
+  # Steam
+  programs.steam = {
+    enable = true;
+    gamescopeSession.enable = true;
+    remotePlay.openFirewall = true;
+    localNetworkGameTransfers.openFirewall = true;
+    extraCompatPackages = with pkgs; [ proton-ge-bin ];
+  };
+}
+
+# modules/system.nix - Complete system configuration with all integrated components
+{ config, pkgs, lib, ... }:
+
+{
+  # Networking configuration (integrated from networking.nix)
+  networking = {
+    hostName = "Dhilipan";
+    networkmanager.enable = true;
+    firewall.enable = true;
+  };
+
+  # NetworkManager with systemd-resolved
+  services.resolved = {
+    enable = true;
+    dnssec = "true";
+    domains = [ "~." ];
+    fallbackDns = [ "1.1.1.1" "1.0.0.1" ];
+  };
+
+  networking.networkmanager.dns = "systemd-resolved";
+
+  # Time configuration
+  time.hardwareClockInLocalTime = true;
+
+  # Boot configuration with hibernation support and integrated boot tweaks
+  boot = {
+    # Kernel and basic settings
+    kernelPackages = pkgs.linuxPackages_6_14;
+    tmp.cleanOnBoot = true;
+    supportedFilesystems.zfs = lib.mkForce false;
+
+    # Enhanced kernel parameters combining both configurations
+    kernelParams = [
+      "zswap.enabled=0"
+      "nosplit_lock_mitigate"
+      "mem_sleep_default=deep"
+      "resume=LABEL=BTRFS_ROOT"
+      "resume_offset=36709632"
+    ] ++ lib.optionals (builtins.elem "kvm-amd" config.boot.kernelModules) [
+      "amd_pstate=active"
+      "clearcpuid=514"
+    ];
+
+    # Resume device for hibernation
+    resumeDevice = "/dev/disk/by-label/BTRFS_ROOT";
+
+    # Plymouth boot splash
+    plymouth = {
+      enable = true;
+      theme = "breeze";
+    };
+
+    # Blacklisted kernel modules
+    blacklistedKernelModules = [
+      "iTCO_wdt"
+      "sp5100_tco"
+    ];
+
+    # Load required kernel modules
+    kernelModules = [ "ntsync" ];
+
+    # Modprobe configurations
+    extraModprobeConfig = ''
+      # Audio power management
+      options snd_hda_intel power_save=0
+      
+      # AMD GPU support
+      options amdgpu si_support=1 cik_support=1
+      options radeon si_support=0 cik_support=0
+    '';
+
+    # Enhanced sysctl settings (prioritizing system.nix settings)
+    kernel.sysctl = {
+      # VM settings
+      "vm.swappiness" = 100;
+      "vm.vfs_cache_pressure" = 50;
+      "vm.dirty_bytes" = 268435456;
+      "vm.page-cluster" = 0;
+      "vm.max_map_count" = 16777216;
+      "vm.dirty_background_bytes" = 67108864;
+      "vm.dirty_writeback_centisecs" = 1500;
+      
+      # Kernel settings
+      "kernel.nmi_watchdog" = 0;
+      "kernel.unprivileged_userns_clone" = 1;
+      "kernel.printk" = "3 3 3 3";
+      "kernel.kptr_restrict" = 2;
+      "kernel.kexec_load_disabled" = 1;
+      
+      # Network settings
+      "net.core.netdev_max_backlog" = 4096;
+      
+      # File system settings
+      "fs.file-max" = 2097152;
+    };
+  };
+
+  # Graphics configuration (integrated from system.nix)
+  hardware.graphics = {
+    enable = true;
+    enable32Bit = true;
+    package = pkgs.mesa;
+    package32 = pkgs.pkgsi686Linux.mesa;
+    
+    extraPackages = with pkgs; [
+      intel-gpu-tools
+      intel-media-driver
+      vaapiIntel
+      vaapiVdpau
+      libvdpau-va-gl
+      libva
+      vulkan-loader
+      vulkan-validation-layers
+    ];
+    
+    extraPackages32 = with pkgs; [
+      intel-media-driver
+      vaapiIntel
+      vaapiVdpau
+      libvdpau-va-gl
+      libva
+    ];
+  };
+
+  # ZRAM swap configuration (from system.nix)
+  zramSwap = {
+    enable = true;
+    algorithm = "zstd";
+    memoryPercent = 100;
+    priority = 100;
+  };
+
+  # Audio configuration (integrated from audio.nix)
+  security.rtkit.enable = true;
+  
+  services.pipewire = {
+    enable = true;
+    jack.enable = true;
+    pulse.enable = true;
+    
+    alsa = {
+      enable = true;
+      support32Bit = true;
+    };
+
+    wireplumber.extraConfig = {
+      "10-disable-camera" = {
+        "wireplumber.profiles" = {
+          main = {
+            "monitor.libcamera" = "disabled";
+          };
+        };
+      };
+    };
+  };
+
+  # Flatpak and AppImage support (from packages.nix)
+  services.flatpak.enable = true;
+  
+  programs.appimage = {
+    enable = true;
+    binfmt = true;
+  };
+
+  # Filesystem maintenance (from packages.nix)
+  services.fstrim = {
+    enable = true;
+    interval = "daily";
+  };
+
+  # Systemd sleep configuration for suspend-then-hibernate
+  systemd.sleep.extraConfig = ''
+    HibernateDelaySec=20m
+    SuspendState=mem
+  '';
+
+  # Systemd configurations
+  systemd = {
+    # Journal size limit
+    services.systemd-journald.serviceConfig = {
+      SystemMaxUse = "50M";
+    };
+    
+    # Service timeouts and limits
+    extraConfig = ''
+      DefaultTimeoutStartSec=15s
+      DefaultTimeoutStopSec=10s
+      DefaultLimitNOFILE=2048:2097152
+    '';
+    
+    # User service limits
+    user.extraConfig = ''
+      DefaultLimitNOFILE=1024:1048576
+    '';
+
+    # Systemd-OOMd configuration
+    slices = {
+      "system" = {
+        sliceConfig = {
+          ManagedOOMMemoryPressure = "kill";
+          ManagedOOMMemoryPressureLimit = "80%";
+        };
+      };
+      "user-" = {
+        sliceConfig = {
+          ManagedOOMMemoryPressure = "kill";
+          ManagedOOMMemoryPressureLimit = "80%";
+        };
+      };
+    };
+
+    # User service delegation
+    services."user@".serviceConfig = {
+      Delegate = "cpu cpuset io memory pids";
+    };
+
+    # RTKit daemon log level
+    services."rtkit-daemon".serviceConfig = {
+      LogLevelMax = "info";
+    };
+
+    # Tmpfiles configuration
+    tmpfiles.rules = [
+      # Clear coredumps after 3 days
+      "d /var/lib/systemd/coredump 0755 root root 3d"
+      
+      # THP (Transparent Huge Pages) configuration
+      "w! /sys/kernel/mm/transparent_hugepage/defrag - - - - defer+madvise"
+      "w! /sys/kernel/mm/transparent_hugepage/khugepaged/max_ptes_none - - - - 409"
+    ];
+  };
+
+  # Time synchronization
+  services.timesyncd = {
+    enable = true;
+    servers = [ "time.cloudflare.com" ];
+    fallbackServers = [
+      "time.google.com"
+      "0.arch.pool.ntp.org"
+      "1.arch.pool.ntp.org" 
+      "2.arch.pool.ntp.org"
+      "3.arch.pool.ntp.org"
+    ];
+  };
+
+  # Udev rules for hardware optimization
+  services.udev.extraRules = ''
+    # Audio power management based on AC/battery
+    SUBSYSTEM=="power_supply", ENV{POWER_SUPPLY_ONLINE}=="0", TEST=="/sys/module/snd_hda_intel", \
+        RUN+="/bin/sh -c 'echo $$(cat /run/udev/snd-hda-intel-powersave 2>/dev/null || \
+            echo 10) > /sys/module/snd_hda_intel/parameters/power_save'"
+    
+    SUBSYSTEM=="power_supply", ENV{POWER_SUPPLY_ONLINE}=="1", TEST=="/sys/module/snd_hda_intel", \
+        RUN+="/bin/sh -c '[[ $$(cat /sys/module/snd_hda_intel/parameters/power_save) != 0 ]] && \
+            echo $$(cat /sys/module/snd_hda_intel/parameters/power_save) > /run/udev/snd-hda-intel-powersave; \
+            echo 0 > /sys/module/snd_hda_intel/parameters/power_save'"
+
+    # ZRAM swappiness adjustment
+    ACTION=="change", KERNEL=="zram0", ATTR{initstate}=="1", SYSCTL{vm.swappiness}="150", \
+        RUN+="/bin/sh -c 'echo N > /sys/module/zswap/parameters/enabled'"
+
+    # Audio permissions
+    KERNEL=="rtc0", GROUP="audio"
+    KERNEL=="hpet", GROUP="audio"
+    KERNEL=="cpu_dma_latency", OWNER="root", GROUP="audio", MODE="0660"
+
+    # SATA power management
+    ACTION=="add", SUBSYSTEM=="scsi_host", KERNEL=="host*", \
+        ATTR{link_power_management_policy}=="*", \
+        ATTR{link_power_management_policy}="max_performance"
+
+    # I/O Schedulers
+    ACTION=="add|change", KERNEL=="sd[a-z]*", ATTR{queue/rotational}=="1", \
+        ATTR{queue/scheduler}="bfq"
+    ACTION=="add|change", KERNEL=="sd[a-z]*|mmcblk[0-9]*", ATTR{queue/rotational}=="0", \
+        ATTR{queue/scheduler}="mq-deadline"
+    ACTION=="add|change", KERNEL=="nvme[0-9]*", ATTR{queue/rotational}=="0", \
+        ATTR{queue/scheduler}="none"
+
+    # HDD power management
+    ACTION=="add|change", KERNEL=="sd[a-z]", ATTR{queue/rotational}=="1", \
+        RUN+="${pkgs.hdparm}/bin/hdparm -B 254 -S 0 /dev/%k"
+  '';
+
+  # Nix optimization (from both configs)
+  nix = {
+    optimise = {
+      automatic = true;
+      dates = [ "weekly" ];
+    };
+    settings = {
+      auto-optimise-store = true;
+    };
+  };
+
+  # Enable nix-ld for running unpatched binaries
+  programs.nix-ld.enable = true;
+
+  # System packages (combining packages from packages.nix and system.nix)
+  environment.systemPackages = with pkgs; [
+    # System utilities (from packages.nix)
+    pciutils
+    usbutils
+    util-linux
+    inxi
+    gawk
+    git
+    libva-utils
+    ffmpeg
+    btop
+    fastfetch
+
+    # Compression tools (from packages.nix)
+    arj
+    brotli
+    bzip2
+    cpio
+    gnutar
+    gzip
+    lha
+    libarchive
+    lrzip
+    lz4
+    lzop
+    p7zip
+    pbzip2
+    pigz
+    pixz
+    unrar
+    unzip
+    xz
+    zip
+    zstd
+
+    # Additional system tools (from system.nix)
+    hdparm
+  ];
+}
